@@ -1,0 +1,60 @@
+tzc (2.6.15-5.2) unstable; urgency=low
+
+  * Non-maintainer upload.
+  * Add -lcom_err to the linker flags to fix link failure with gold
+    (closes: #556513)
+  * Fix -Wformat warning in call to execlp (tzc.c:496:7: warning: missing
+    sentinel in function call).
+
+ -- Julien Cristau <jcristau@debian.org>  Sat, 31 Dec 2011 12:29:21 +0100
+
+tzc (2.6.15-5.1) unstable; urgency=low
+
+  * Non-maintainer upload.
+  * Build depend on zephyr 3.0, indicating a transition from krb4 to krb5
+    zephyr, Closes: #538052 
+
+ -- Sam Hartman <hartmans@debian.org>  Thu, 23 Jul 2009 07:42:27 -0400
+
+tzc (2.6.15-5) unstable; urgency=low
+
+  * Fix FTBFS with gcc 3.4.  (Closes: #264445)
+  * Fix minor prototype mismatch.
+  * Fix linitian warnings and update Debian standards 3.6.2.1
+
+ -- Theodore Y. Ts'o <tytso@mit.edu>  Sat, 24 Sep 2005 20:46:29 -0400
+
+tzc (2.6.15-4) unstable; urgency=low
+
+  * We were depending on the version of com_err.h that was provided by
+    Kerberos; but since we've removed that from the build-depends line, 
+    this broke the on the autobuilders.  (Closes: #171856)
+
+ -- Theodore Y. Ts'o <tytso@mit.edu>  Thu,  5 Dec 2002 13:01:05 -0500
+
+tzc (2.6.15-3) unstable; urgency=low
+
+  * Remove explicit mention of Kerberos libraries on the link line,
+    since libzephyr3-krb will automatically pull in the kerberos libraries
+    if necessary.  (Closes: #153783)
+  * Removed ZckAuth.c hack since it adds a Kerberos dependency, and
+    doesn't always work.
+  * Apply patch from Karl Ramm to specify an opcode when sending a zgram.
+
+ -- Theodore Y. Ts'o <tytso@mit.edu>  Tue,  3 Dec 2002 15:38:16 -0500
+
+tzc (2.6.15-2) unstable; urgency=low
+
+  * Minor fixups pointed out by Sam Hartman before making it ready for
+    initial upload.  (Closes: #153079)
+  * Add build dependency on libzephyr-dev and comerr-dev, and 
+    remove references to /usr/local in the Makefile.
+
+ -- Theodore Y. Ts'o <tytso@mit.edu>  Mon, 15 Jul 2002 16:10:52 -0400
+
+tzc (2.6.15-1) unstable; urgency=low
+
+  * Initial Release.
+
+ -- Theodore Y. Ts'o <tytso@mit.edu>  Mon, 15 Jul 2002 09:07:11 -0400
+
