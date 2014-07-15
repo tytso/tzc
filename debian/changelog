@@ -1,3 +1,10 @@
+tzc (2.6.15-5.3) unstable; urgency=medium
+
+  * Non-maintainer upload.
+  * tzc.c: fix heartbeat-subscription bugs from 2009. (Closes: #561039)
+
+ -- Mark W. Eichin <eichin@thok.org>  Tue, 15 Jul 2014 11:55:58 -0400
+
 tzc (2.6.15-5.2) unstable; urgency=low
 
   * Non-maintainer upload.

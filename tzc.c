@@ -1377,7 +1377,9 @@ setup(int use_zctl)
    globals->ebuf = (char *) malloc(globals->ebufsiz);
    globals->ebufptr = globals->ebuf;
 
-   reset_heartbeat();
+   if (globals->heartbeat.status != HB_DISABLED) {
+     reset_heartbeat();
+   }
 
    globals->pending_replies = NULL;
 
@@ -1614,7 +1616,9 @@ report_zgram(ZNotice_t *notice, int auth)
       }
 
       /* zephyr server is still talking to us, so reset the heartbeat */
-      reset_heartbeat();
+      if (globals->heartbeat.status != HB_DISABLED) {
+        reset_heartbeat();
+      }
 
       /* if this is a heartbeat zgram, don't report it */
       if (!strcasecmp(notice->z_class, TZC_HEARTBEAT_CLASS) &&
@@ -2012,6 +2016,7 @@ int main(int argc, char *argv[]) {
 	 globals->heartbeat.period = atoi(optarg);
 	 if (globals->heartbeat.period == 0)
 	    globals->heartbeat.status = HB_DISABLED;
+         break;
        case 'd':
 	 globals->debug = 1;
 	 break;
