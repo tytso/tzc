@@ -3,7 +3,7 @@
 #KERB_LIBS = -lkrb4 -ldes425 -lcom_err
 ZEPHYR_LIBS = -lzephyr -lcom_err
 
-DESTDIR = 
+DESTDIR =
 
 # You may need to use these to pick up some BSD'ish functions like flock().
 # Linux needs MISC_LIBS = -lbsd
@@ -18,7 +18,7 @@ MISC_LIBS =
 # EXTRA_OBJS = getenv.o
 
 # This is not included since in some cases it can do more harm than good.
-#EXTRA_OBJS = ZCkAuth.o 
+#EXTRA_OBJS = ZCkAuth.o
 
 OBJS = tzc.o lread.o $(EXTRA_OBJS)
 
@@ -27,17 +27,16 @@ LD = $(CC)
 
 DEFINES = -DINTERREALM
 INCLUDES = $(ZEPHYR_INCLUDES) $(KERB_INCLUDES) $(MISC_CFLAGS)
-CFLAGS = -g -O -Wall $(DEFINES) $(INCLUDES)
+CFLAGS = -g -O -Wall $(DEFINES) $(INCLUDES) -fPIE -pie -O2 -fstack-protector-strong -Wformat -Werror=format-security
 
 LIBS = $(ZEPHYR_LIBS) $(KERB_LIBS) $(MISC_LIBS)
 
-tzc: $(OBJS) 
-	$(LD) $(LDFLAGS) -o tzc.new $(OBJS) $(LIBS)
+tzc: $(OBJS)
+	$(LD) $(CFLAGS) $(LDFLAGS) -o tzc.new $(OBJS) $(LIBS)
 	/bin/mv tzc.new tzc
 
-install: tzc
-	install tzc $(DESTDIR)/usr/bin
-	install tzc.1 $(DESTDIR)/usr/share/man/man1
+#install: tzc
+#	install tzc $(DESTDIR)/usr/bin
 
 lread.o: lread.h
 tzc.o: lread.h

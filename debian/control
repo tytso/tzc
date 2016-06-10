@@ -2,12 +2,12 @@ Source: tzc
 Section: net
 Priority: optional
 Maintainer: Theodore Y. Ts'o <tytso@mit.edu>
-Build-Depends: debhelper (>> 3.0.0), libzephyr-dev (>= 3.0~beta), comerr-dev
+Build-Depends: debhelper (>= 9), libzephyr-dev (>= 3.0~beta), comerr-dev
 Standards-Version: 3.6.2.1
 
 Package: tzc
 Architecture: any
-Depends: ${shlibs:Depends}, zephyr-clients
+Depends: ${misc:Depends}, ${shlibs:Depends}, zephyr-clients
 Description: Trivial Zephyr Client
  tzc is a trivial zephyr client program which talks to the zephyr servers 
  (via the "zephyr host manager").   It is primarily used by the gnu-emacs

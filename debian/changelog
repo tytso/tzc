@@ -1,3 +1,37 @@
+tzc (2.6.15-5.4) unstable; urgency=medium
+
+  * Non-maintainer upload.
+  * Updated DH_LEVEL from 3 to 9. (Closes: #800220)
+  * debian/control:
+      - Build-Depends field:
+          - debhelper >= 9.
+      - tzc Depends:
+          - ${misc:Depends} added.
+  * debian/dirs removed.
+  * debian/install created:
+      - using the file to install the command binary.
+  * dir debian/man created.
+      - to put tzc.1 in there. Was in tzc*.diff.gz.
+  * debian/manpages created.
+  * debian/patches: (quilt)
+      - split up tzc*.diff.gz archive. Three patch files.:
+          - add_ZCkAuth_file.patch. Create the ZCkAuth.c file completely.
+          - makefile-fixes.patch:
+              - to stop lintian about 'no-pie':
+                  - add some options to CFLAGS.
+                  - add $(CFLAGS) to tzc target.
+              - entries to install manpage and the command binary removed.
+          - fixes-tzc-c.patch.
+              - '%s' added to com_err(). Three times. Fernando Seiti Furusato
+                helped.
+        All patches needed 'quilt refresh --strip-trailing-whitespace'.
+  * debian/rules:
+      - new format
+      - hardening+=bidnow added.
+      - lines about debug and nostrip were removed.
+
+ -- Herbert Parentes Fortes Neto <hpfn@ig.com.br>  Fri, 10 Jun 2016 13:58:04 -0300
+
 tzc (2.6.15-5.3) unstable; urgency=medium
 
   * Non-maintainer upload.

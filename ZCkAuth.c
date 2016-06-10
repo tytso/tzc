@@ -13,7 +13,7 @@
  *
  *	Copyright (c) 1987,1991 by the Massachusetts Institute of Technology.
  *	For copying and distribution information, see the file
- *	"mit-copyright.h". 
+ *	"mit-copyright.h".
  */
 /* /mit/zephyr/src/CVS/zephyr/lib/zephyr/ZCkAuth.c,v 1.21 1995/06/30 22:03:53 ghudson Exp */
 
@@ -41,7 +41,7 @@ static char rcsid_ZCheckAuthentication_c[] =
 Code_t ZCheckAuthentication(notice, from)
     ZNotice_t *notice;
     struct sockaddr_in *from;
-{	
+{
 #ifdef ZEPHYR_USES_KERBEROS
     int result;
     ZChecksum_t our_checksum;
@@ -54,9 +54,9 @@ Code_t ZCheckAuthentication(notice, from)
 
     if (!notice->z_auth)
 	return (ZAUTH_NO);
-	
+
     if (!got_cred &&
-	(result = krb_get_cred(SERVER_SERVICE, SERVER_INSTANCE, 
+	(result = krb_get_cred(SERVER_SERVICE, SERVER_INSTANCE,
 			       __Zephyr_realm, &cred)) != 0)
       return (ZAUTH_NO);
 
@@ -65,7 +65,7 @@ Code_t ZCheckAuthentication(notice, from)
 #ifdef NOENCRYPTION
     our_checksum = 0;
 #else /* NOENCRYPTION */
-    our_checksum = des_quad_cksum(notice->z_packet, NULL, 
+    our_checksum = des_quad_cksum(notice->z_packet, NULL,
                                 notice->z_default_format+
                                 strlen(notice->z_default_format)+1-
                                 notice->z_packet, 0, cred.session);
@@ -76,4 +76,4 @@ Code_t ZCheckAuthentication(notice, from)
 #else /* ZEPHYR_USES_KERBEROS */
     return (notice->z_auth ? ZAUTH_YES : ZAUTH_NO);
 #endif
-} 
+}

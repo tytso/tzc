@@ -387,7 +387,7 @@ Code_t check(Code_t e, char *s) {
    if (e) {
       printf(";;; return code %d\n",(int) e);
       fflush(stdout);
-      com_err(__FILE__, e, s);
+      com_err(__FILE__, e, "%s", s);
       bail(1);
    }
    return e;
@@ -395,7 +395,7 @@ Code_t check(Code_t e, char *s) {
 
 Code_t warn(Code_t e, char *s) {
    if (e)
-      com_err(__FILE__, e, s);
+      com_err(__FILE__, e, "%s", s);
    return e;
 }
 
@@ -641,7 +641,7 @@ emacs_error(char *err)
    reentry = 0;
 }
 
-static void tzc_com_err_hook(const char *whoami, long errcode, 
+static void tzc_com_err_hook(const char *whoami, long errcode,
 			     const char *fmt, va_list ap)
 {
     char buf1[4096], errmsg[4096];
@@ -710,7 +710,7 @@ send_zgram_to_one(char *class, char *opcode, char *sender,
    if ((retval = ZSendNotice(&notice, auth)) != ZERR_NONE) {
       (void) sprintf(bfr, "while sending notice to %s", 
 		     notice.z_recipient);
-      com_err(__FILE__, retval, bfr);
+      com_err(__FILE__, retval, "%s", bfr);
       /* XXX should probably free instance & recipient here */
       return 1;
    } else {
