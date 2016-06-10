@@ -1,0 +1,10 @@
+tzc for Debian
+--------------
+
+This is pretty much the stock tzc from
+
+     http://www-2.cs.cmu.edu/People/dkindred/zephyr-mode/tzc-2.6.15.tar.gz
+
+with a patch from Karl Ramm so that the zephyrgram can be sent with a
+specified opcode.
+
