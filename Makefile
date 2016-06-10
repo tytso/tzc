@@ -1,12 +1,9 @@
 # Configure as appropriate.
 
-KERB_INCLUDES = -I/usr/local/include
-KERB_LIBDIR = /usr/local/lib
-KERB_LIBS = -L$(KERB_LIBDIR) -lkrb -ldes -lcom_err
+#KERB_LIBS = -lkrb4 -ldes425 -lcom_err
+ZEPHYR_LIBS = -lzephyr -lcom_err
 
-ZEPHYR_INCLUDES = -I/usr/local/include
-ZEPHYR_LIBDIR = /usr/local/lib
-ZEPHYR_LIBS = -L$(ZEPHYR_LIBDIR) -lzephyr
+DESTDIR =
 
 # You may need to use these to pick up some BSD'ish functions like flock().
 # Linux needs MISC_LIBS = -lbsd
@@ -20,18 +17,26 @@ MISC_LIBS =
 # uncomment this if getenv() isn't already available (e.g. SunOS 4.1.x)
 # EXTRA_OBJS = getenv.o
 
+# This is not included since in some cases it can do more harm than good.
+#EXTRA_OBJS = ZCkAuth.o
+
+OBJS = tzc.o lread.o $(EXTRA_OBJS)
+
 CC = gcc
 LD = $(CC)
 
 DEFINES = -DINTERREALM
 INCLUDES = $(ZEPHYR_INCLUDES) $(KERB_INCLUDES) $(MISC_CFLAGS)
-CFLAGS = -g -O -Wall $(DEFINES) $(INCLUDES)
+CFLAGS = -g -O -Wall $(DEFINES) $(INCLUDES) -fPIE -pie -O2 -fstack-protector-strong -Wformat -Werror=format-security
 
 LIBS = $(ZEPHYR_LIBS) $(KERB_LIBS) $(MISC_LIBS)
 
-tzc: tzc.o lread.o $(EXTRA_OBJS)
-	$(LD) $(LDFLAGS) -o tzc.new tzc.o lread.o $(EXTRA_OBJS) $(LIBS)
+tzc: $(OBJS)
+	$(LD) $(CFLAGS) $(LDFLAGS) -o tzc.new $(OBJS) $(LIBS)
 	/bin/mv tzc.new tzc
+
+#install: tzc
+#	install tzc $(DESTDIR)/usr/bin
 
 lread.o: lread.h
 tzc.o: lread.h
