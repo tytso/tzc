@@ -124,7 +124,7 @@
 #include <fcntl.h>
 #include <errno.h>
 #include "lread.h"
-#include <com_err.h>
+#include <et/com_err.h>
 #if USE_LIBCS
 #include <libcs.h>	      /* for snprintf */
 #endif
@@ -248,6 +248,7 @@ struct Globals {
       Value *sym_register_query;
       Value *sym_query;
       Value *sym_id;
+      Value *sym_opcode;
    } constants;
 };
 
@@ -386,7 +387,7 @@ Code_t check(Code_t e, char *s) {
    if (e) {
       printf(";;; return code %d\n",(int) e);
       fflush(stdout);
-      com_err(__FILE__, e, s);
+      com_err(__FILE__, e, "%s", s);
       bail(1);
    }
    return e;
@@ -394,7 +395,7 @@ Code_t check(Code_t e, char *s) {
 
 Code_t warn(Code_t e, char *s) {
    if (e)
-      com_err(__FILE__, e, s);
+      com_err(__FILE__, e, "%s", s);
    return e;
 }
 
@@ -492,7 +493,7 @@ void subscribe_with_zctl() {
   if(!(pid = fork())) {
       char fn[1024];
       sprintf(fn,"%s/.zephyr.subs.tzc",getenv("HOME"));
-      execlp(ZCTL_BINARY,"zctl","load",fn,0);
+      execlp(ZCTL_BINARY,"zctl","load",fn,(char *)0);
       perror("zctl exec");
       fprintf(stderr,"Unable to load subscriptions.\n");
       bail(0);
@@ -640,7 +641,7 @@ emacs_error(char *err)
    reentry = 0;
 }
 
-static void tzc_com_err_hook(const char *whoami, int errcode, 
+static void tzc_com_err_hook(const char *whoami, long errcode,
 			     const char *fmt, va_list ap)
 {
     char buf1[4096], errmsg[4096];
@@ -709,7 +710,7 @@ send_zgram_to_one(char *class, char *opcode, char *sender,
    if ((retval = ZSendNotice(&notice, auth)) != ZERR_NONE) {
       (void) sprintf(bfr, "while sending notice to %s", 
 		     notice.z_recipient);
-      com_err(__FILE__, retval, bfr);
+      com_err(__FILE__, retval, "%s", bfr);
       /* XXX should probably free instance & recipient here */
       return 1;
    } else {
@@ -733,7 +734,7 @@ send_zgram(Value *spec)
     Value *recip_list;
     Value *message_list;
     int message_len;
-    char *message = 0, *class, *instance, *sender, *recipient;
+    char *message = 0, *class, *instance, *sender, *recipient, *opcode;
 
     /* emacs sends something of the form:
      * ((class . "MESSAGE") 
@@ -751,6 +752,12 @@ send_zgram(Value *spec)
        goto fail;
     }
     class = vextract_string_c(VCDR(v));
+    /* opcode */
+    v = assqv(globals->constants.sym_opcode, spec);
+    if (VTAG(v) != cons) /* ? */
+      opcode = "";
+    else
+      opcode = vextract_string_c(VCDR(v));
     /* recipients */
     v = assqv(globals->constants.sym_recipients, spec);
     if (VTAG(v) != cons) {
@@ -839,7 +846,7 @@ send_zgram(Value *spec)
 #endif /* INTERREALM */
 #endif
 
-       if (send_zgram_to_one(class, "", sender, instance, recipient,
+       if (send_zgram_to_one(class, opcode, sender, instance, recipient,
 			     message, message_len, auth) != 0)
 	  break;
        recip_list = VCDR(recip_list);
@@ -1165,6 +1172,7 @@ handle_set_location(Value *setloc_cmd)
 
  fail:
    /* nothing to do */
+   return;
 }
 
 
@@ -1369,7 +1377,9 @@ setup(int use_zctl)
    globals->ebuf = (char *) malloc(globals->ebufsiz);
    globals->ebufptr = globals->ebuf;
 
-   reset_heartbeat();
+   if (globals->heartbeat.status != HB_DISABLED) {
+     reset_heartbeat();
+   }
 
    globals->pending_replies = NULL;
 
@@ -1389,6 +1399,7 @@ setup(int use_zctl)
    globals->constants.sym_register_query = vmake_symbol_c("register-query");
    globals->constants.sym_query = vmake_symbol_c("query");
    globals->constants.sym_id = vmake_symbol_c("id");
+   globals->constants.sym_opcode = vmake_symbol_c("opcode");
 }
 
 void
@@ -1605,7 +1616,9 @@ report_zgram(ZNotice_t *notice, int auth)
       }
 
       /* zephyr server is still talking to us, so reset the heartbeat */
-      reset_heartbeat();
+      if (globals->heartbeat.status != HB_DISABLED) {
+        reset_heartbeat();
+      }
 
       /* if this is a heartbeat zgram, don't report it */
       if (!strcasecmp(notice->z_class, TZC_HEARTBEAT_CLASS) &&
@@ -2003,6 +2016,7 @@ int main(int argc, char *argv[]) {
 	 globals->heartbeat.period = atoi(optarg);
 	 if (globals->heartbeat.period == 0)
 	    globals->heartbeat.status = HB_DISABLED;
+         break;
        case 'd':
 	 globals->debug = 1;
 	 break;
