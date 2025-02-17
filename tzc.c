@@ -17,7 +17,7 @@
    along with this program; if not, write to the Free Software
    Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 
-   Now at version 2.6.15
+   Now at version 2.6.16
 
    Thanks to Nick Thompson and Darrell Kindred for their contributions.
 
@@ -47,6 +47,7 @@
 
    CHANGES
 
+   10 Dec 2004  (ver 2.6.16) added opcode and zlocate support - aarons@aberrant.org
    15 Jun 2000  (ver 2.6.15) handle malformed (< 0) z_time.tv_usec
    30 May 2000  (ver 2.6.14) handle malformed (> 999999) z_time.tv_usec
    30 May 2000  (ver 2.6.13) change z_default_format (include time/date etc.)
@@ -101,7 +102,7 @@
    
   */
 
-#define TZC_VERSION "2.6.15"
+#define TZC_VERSION "2.6.16"
 
 #include <stdarg.h>
 #include <string.h>
@@ -201,7 +202,9 @@ struct Globals {
 #endif
    char *       exposure;
    char *       location;
+   char *       hostname;
    int		debug;
+   int          default_sub;    /* if 0, don't sub to -c MESSAGE */
 
    struct {
        enum {
@@ -227,6 +230,7 @@ struct Globals {
    char *	ebuf;
    char *	ebufptr;
 
+   ZAsyncLocateData_t locate_data;
    /* linked list of messages sent which are waiting for replies */
    PendingReply *pending_replies;
 
@@ -244,11 +248,13 @@ struct Globals {
       Value *sym_set_location;
       Value *sym_location;
       Value *sym_exposure;
+      Value *sym_hostname;
       Value *sym_ayt;
       Value *sym_register_query;
       Value *sym_query;
       Value *sym_id;
       Value *sym_opcode;
+      Value *sym_zlocate;
    } constants;
 };
 
@@ -260,8 +266,10 @@ void usage() {
    fprintf(stderr, "      -a <nseconds>  restart tzc every <nseconds> seconds\n");
    fprintf(stderr, "      -e <exposure>  set exposure (values: NONE, OPSTAFF, REALM-VISIBLE,\n");
    fprintf(stderr, "                     REALM-ANNOUNCED, NET-VISIBLE, NET-ANNOUNCED)\n");
-   fprintf(stderr, "      -l <location>  set zlocation to the given string\n");
+   fprintf(stderr, "      -l <location>  set zlocation tty to the given string\n");
    fprintf(stderr, "                     (default: tzc.n, where n is tzc's pid)\n");
+   fprintf(stderr, "      -h <hostname>  set zlocation hostname to the given string\n");
+   fprintf(stderr, "                     (default: current hostname)\n");
    fprintf(stderr, "      -p <filename>  write tzc's process-id to the indicated file\n");
    fprintf(stderr, "      -s             use zctl for subscriptions (read from ~/.zephyr.subs.tzc)\n");
    fprintf(stderr, "      -t <nseconds>  if no zgrams arrive in <nseconds> seconds, send a test\n");
@@ -424,7 +432,7 @@ void subscribe() {
    static ZSubscription_t sub[] =
    {/* recipient, class, instance -- wildcard not allowed on class */
     {"%me%", "MESSAGE", "*"},
-    {"*", TZC_HEARTBEAT_CLASS, TZC_HEARTBEAT_INSTANCE},
+    {"*", TZC_HEARTBEAT_CLASS, TZC_HEARTBEAT_INSTANCE}, //, if default message,*,* sub
 /*    {"%me%", TZC_HEARTBEAT_CLASS, TZC_HEARTBEAT_INSTANCE}, */
 #ifdef TEST_XREALM
     {"*@CS612.CMU.EDU", "MESSAGE", "*"},
@@ -436,9 +444,12 @@ void subscribe() {
     {"*", "GLOBAL", "*"},
     {"*", "CMU", "*"},
 #endif
-    {"*", "MESSAGE", "*"}
 };
    int n = sizeof(sub) / sizeof(ZSubscription_t);
+   static ZSubscription_t default_sub[] = {
+     {"*", "MESSAGE", "*"}
+};
+   int default_n = sizeof(sub) / sizeof(ZSubscription_t);
 #if (ZVERSIONMAJOR > 0) || (ZVERSIONMINOR >= 2)
    sub[0].zsub_recipient = ZGetSender();
 #else
@@ -460,6 +471,22 @@ void subscribe() {
       fflush(stdout);
    }
    check(retval, "ZSubscribeTo");
+   if (globals->default_sub) {
+     for (retry = 0; retry < 3; retry++) {
+       if (retry>0) {
+	 sleep(2);
+	 printf("; retrying...\n");
+	 fflush(stdout);
+       }
+       /* The cast is necessary for the alpha, because zephyr.h assumes
+	* sizeof(int) == sizeof(long) */
+       if ((retval = ZSubscribeTo(default_sub, default_n, 0)) != (Code_t) ZERR_SERVNAK)
+	 break;
+       printf("; SERVNAK received while attempting to subscribe\n");
+       fflush(stdout);
+     }
+     check(retval, "ZSubscribeTo");
+   }
 }
 
 void subscribe_with_zctl() {
@@ -991,6 +1018,32 @@ done:
 }
 
 void
+handle_zlocate(Value *cmd)
+{
+   Value *cur;
+   char *cur_userid;
+
+   cmd = VCDR(cmd); /* chop the fodder */
+
+   while (VTAG(cmd) == cons)
+   {
+      cur = VCAR(cmd);
+      cmd = VCDR(cmd);
+      /* for each userid */
+
+      if (VTAG(cur) != string) {
+	 emacs_error("non-string zlocate parameter, ignoring");
+	 continue;
+      }
+
+      cur_userid = vextract_string_c(cur);
+
+      check(ZRequestLocations(cur_userid, &globals->locate_data, UNSAFE, ZNOAUTH), "ZRequestLocations");
+      /* send a request string.. */
+   }
+}
+
+void
 zsubscribe(Value *subscribe_cmd)
 {
    ZSubscription_t *zsubs;
@@ -1060,8 +1113,7 @@ set_location() {
    ZUnsetLocation();	      /* no error checking here */
    if (globals->exposure != NULL) {
 #if 1
-     /* could allow setting hostnmae too */
-     int rc = check(ZInitLocationInfo(NULL, globals->location), 
+     int rc = check(ZInitLocationInfo(globals->hostname, globals->location),
 		    "ZInitLocationInfo");
      if (rc != ZERR_NONE) {
        return rc;
@@ -1093,6 +1145,8 @@ report_location()
 {
    emacs_put_open();
    emacs_put_sym("tzcspew", "location");
+   emacs_put_str("hostname",
+		 globals->hostname == NULL ? "" : globals->hostname);
    emacs_put_str("location", globals->location);
    emacs_put_str("exposure", 
 		 globals->exposure == NULL ? "NONE" : globals->exposure);
@@ -1108,9 +1162,9 @@ handle_get_location(Value *getloc_cmd)
 static void
 handle_set_location(Value *setloc_cmd)
 {
-   char *new_exposure = NULL, *new_location = NULL;
-   int new_exposure_given = 0, new_location_given = 0;
-   Value *exposure_v, *location_v;
+   char *new_exposure = NULL, *new_location = NULL, *new_hostname = NULL;
+   int new_exposure_given = 0, new_location_given = 0, new_hostname_given = 0;
+   Value *exposure_v, *location_v, *hostname_v;
    /* emacs sends subscriptions in this form:
     * ((tzcfodder . set-location)
     *    (exposure . "NET-ANNOUNCED")     ; optional - default is current exp.
@@ -1122,6 +1176,7 @@ handle_set_location(Value *setloc_cmd)
    setloc_cmd = VCDR(setloc_cmd);   /* strip off tzcfodder */
    exposure_v = assqv(globals->constants.sym_exposure, setloc_cmd);
    location_v = assqv(globals->constants.sym_location, setloc_cmd);
+   hostname_v = assqv(globals->constants.sym_hostname, setloc_cmd);
 
    if (exposure_v != NULL) {
      Value *exposure_str = VCDR(exposure_v);
@@ -1153,9 +1208,26 @@ handle_set_location(Value *setloc_cmd)
      }
    }
 
+   if (hostname_v != NULL) {
+     Value *hostname_str = VCDR(hostname_v);
+     if (hostname_str != NULL
+	 && VTAG(hostname_str) == string) {
+       new_hostname_given = 1;
+       new_hostname = vextract_string_c(hostname_str);
+     } else {
+       emacs_error("bad hostname argument in set-location");
+       goto fail;
+     }
+   }
+
+   if (new_hostname_given) {
+      free(globals->hostname);
+      globals->hostname = new_hostname;
+   }
+
    if (new_location_given) {
-     free(globals->location);
-     globals->location = new_location;
+      free(globals->location);
+      globals->location = new_location;
    }
    if (new_exposure_given) {
      if (globals->exposure) 
@@ -1163,7 +1235,7 @@ handle_set_location(Value *setloc_cmd)
      globals->exposure = new_exposure;
    }
 
-   if (new_location_given || new_exposure_given) {
+   if (new_location_given || new_exposure_given || new_hostname_given) {
      if (set_location() != ZERR_NONE) {
        return;
      }
@@ -1203,6 +1275,8 @@ process_sexp(Value *v)
 	 handle_ayt(v);
       else if (eqv(key, globals->constants.sym_register_query))
 	 register_query(v);
+      else if (eqv(key, globals->constants.sym_zlocate))
+	handle_zlocate(v);
       else
 	{
 	  char *err = malloc(VSLENGTH(key) + 30);
@@ -1313,17 +1387,19 @@ void say_hi() {
 
 void reset_heartbeat() {
    int fuzz;
-   globals->heartbeat.status = HB_ENABLED;
-   /* add +/- 20% random fuzz to the period to prevent everyone from 
-    * pounding the server at once */
-   fuzz = globals->heartbeat.period / 5;
-   globals->heartbeat.wakeup = time(0) + globals->heartbeat.period + 
-                        (random() % 1000 - 500) * fuzz / 500;
-   if (globals->debug) {
-      printf(";;; %s ",debug_time_str(time(0)));
-      printf("reset heartbeat (will wake up at %s)\n",
-             debug_time_str(globals->heartbeat.wakeup));
-      fflush(stdout);
+   if (globals->heartbeat.status != HB_DISABLED) {
+     globals->heartbeat.status = HB_ENABLED;
+     /* add +/- 20% random fuzz to the period to prevent everyone from
+      * pounding the server at once */
+     fuzz = globals->heartbeat.period / 5;
+     globals->heartbeat.wakeup = time(0) + globals->heartbeat.period +
+       (random() % 1000 - 500) * fuzz / 500;
+     if (globals->debug) {
+       printf(";;; %s ",debug_time_str(time(0)));
+       printf("reset heartbeat (will wake up at %s)\n",
+	      debug_time_str(globals->heartbeat.wakeup));
+       fflush(stdout);
+     }
    }
 }
 
@@ -1377,9 +1453,7 @@ setup(int use_zctl)
    globals->ebuf = (char *) malloc(globals->ebufsiz);
    globals->ebufptr = globals->ebuf;
 
-   if (globals->heartbeat.status != HB_DISABLED) {
-     reset_heartbeat();
-   }
+   reset_heartbeat();
 
    globals->pending_replies = NULL;
 
@@ -1392,14 +1466,17 @@ setup(int use_zctl)
    globals->constants.sym_tzcfodder = vmake_symbol_c("tzcfodder");
    globals->constants.sym_auth = vmake_symbol_c("auth");
    globals->constants.sym_subscribe = vmake_symbol_c("subscribe");
+   globals->constants.sym_get_location = vmake_symbol_c("get-location");
    globals->constants.sym_set_location = vmake_symbol_c("set-location");
    globals->constants.sym_exposure = vmake_symbol_c("exposure");
    globals->constants.sym_location = vmake_symbol_c("location");
+   globals->constants.sym_hostname = vmake_symbol_c("hostname");
    globals->constants.sym_ayt = vmake_symbol_c("ayt");
    globals->constants.sym_register_query = vmake_symbol_c("register-query");
    globals->constants.sym_query = vmake_symbol_c("query");
    globals->constants.sym_id = vmake_symbol_c("id");
    globals->constants.sym_opcode = vmake_symbol_c("opcode");
+   globals->constants.sym_zlocate = vmake_symbol_c("zlocate");
 }
 
 void
@@ -1571,6 +1648,54 @@ check_queries(ZNotice_t *notice) {
 #endif /* QUERY_HELL */
 
 void
+report_locate_notice(ZNotice_t *notice)
+{
+   int numlocs;
+   char *user;
+   int one = 1;
+   ZLocations_t locations;
+
+   if (check(ZParseLocations(notice, (ZAsyncLocateData_t *)NULL,
+			     &numlocs, &user), "ZParseLocations")
+       != ZERR_NONE)
+      return;
+
+   if (globals->debug)
+       printf(";;; numlocs = %d\n", numlocs);
+   emacs_put_open();
+   emacs_put_sym("tzcspew", "zlocation");
+
+   emacs_put_pair_open("time-secs");
+   fprintf(stdout, "(%d %d %d)",
+	   (int) (notice->z_time.tv_sec >> 16),
+	   (int) (notice->z_time.tv_sec & 0xffff),
+	   (int) notice->z_time.tv_usec);
+   emacs_put_pair_close();
+
+   emacs_put_str("user", user);
+
+   emacs_put_pair_open("locations");
+   fputs("(", stdout);
+   for (;numlocs;numlocs--) {
+      if (check(ZGetLocations(&locations,&one), "ZGetLocations") != ZERR_NONE)
+      {
+	 emacs_put_pair_close();
+	 emacs_put_close();
+	 return;
+      }
+
+      fputs("(", stdout);
+      emacs_put_str("host", locations.host);
+      emacs_put_str("tty", locations.tty);
+      emacs_put_str("time", locations.time);
+      fputs(") ", stdout);
+   }
+   fputs(")", stdout);
+   emacs_put_pair_close();
+   emacs_put_close();
+}
+
+void
 report_zgram(ZNotice_t *notice, int auth)
 {
       int i, len, forced_termination;
@@ -1616,9 +1741,7 @@ report_zgram(ZNotice_t *notice, int auth)
       }
 
       /* zephyr server is still talking to us, so reset the heartbeat */
-      if (globals->heartbeat.status != HB_DISABLED) {
-        reset_heartbeat();
-      }
+      reset_heartbeat();
 
       /* if this is a heartbeat zgram, don't report it */
       if (!strcasecmp(notice->z_class, TZC_HEARTBEAT_CLASS) &&
@@ -1635,6 +1758,15 @@ report_zgram(ZNotice_t *notice, int auth)
 	 }
          return;
       }
+
+
+      if (!strcasecmp(notice->z_opcode, "LOCATE") &&
+	  !strcasecmp(notice->z_class, "USER_LOCATE"))
+      {
+	 report_locate_notice(notice);
+	 return;
+      }
+
       /* XXX one of these days we need to check return values from all
        * these mallocs */
       /* XXX can we assume that z_recipient and z_class_inst are not NULL? */
@@ -1968,6 +2100,7 @@ int main(int argc, char *argv[]) {
    globals->argv = argv;
    globals->pidfile = NULL;
    globals->exposure = NULL;
+   globals->hostname = NULL;
    globals->use_stdin = 1;
    globals->ignore_eof = 0;
    globals->heartbeat.status = HB_ENABLED;
@@ -1994,7 +2127,7 @@ int main(int argc, char *argv[]) {
    signal(SIGTERM, kill_tzc);
    signal(SIGQUIT, kill_tzc);
 
-   while ((sw = getopt(argc, argv, "sa:e:p:l:noidt:")) != EOF)
+   while ((sw = getopt(argc, argv, "sa:e:p:l:noidt:h:")) != EOF)
       switch (sw) {
        case 's':
 	 use_zctl = 1;
@@ -2014,9 +2147,10 @@ int main(int argc, char *argv[]) {
 	 break;
        case 't':
 	 globals->heartbeat.period = atoi(optarg);
+	 printf("; heartbeat period = %d\n", (int)globals->heartbeat.period);
 	 if (globals->heartbeat.period == 0)
 	    globals->heartbeat.status = HB_DISABLED;
-         break;
+	 break;
        case 'd':
 	 globals->debug = 1;
 	 break;
@@ -2037,6 +2171,8 @@ int main(int argc, char *argv[]) {
 	 free(globals->location);
 	 globals->location = strdup(optarg);
 	 break;
+       case 'h':
+	 globals->hostname = strdup(optarg);
        case 'o':
 	 globals->use_stdin = 0;
 	 break;
@@ -2063,6 +2199,7 @@ int main(int argc, char *argv[]) {
    emacs_put_str("exposure", globals->exposure==NULL?"NONE":globals->exposure);
    emacs_put_sym("heartbeat", globals->heartbeat.status == HB_DISABLED ?
 		 "nil" : "t");
+   emacs_put_int("heartbeat_rate", globals->heartbeat.period);
    emacs_put_str("time" , time_str(time(0)));
    emacs_put_pair_open("features");
    putc('(', stdout);

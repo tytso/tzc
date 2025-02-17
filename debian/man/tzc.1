@@ -37,9 +37,14 @@ Set exposure.  (values: NONE, OPSTAFF, REALM-VISIBLE, REALM-ANNOUNCED,
 NET-VISIBLE, NET-ANNOUNCED)
 .TP
 .BI \-l, " location"
-Set zlocation to the string
+Set zlocation tty to the string
 .IR location .
 The default is tzc.n, where n is tzc's pid.
+.TP
+.BI \-h, " hostname"
+Set zlocation hostname to the string
+.IR hostname .
+The default is the current hosts hostname.
 .TP
 .BI \-p " filename"
 Write tzc's process-id to the file
