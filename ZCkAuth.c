@@ -17,10 +17,6 @@
  */
 /* /mit/zephyr/src/CVS/zephyr/lib/zephyr/ZCkAuth.c,v 1.21 1995/06/30 22:03:53 ghudson Exp */
 
-#ifndef lint
-static char rcsid_ZCheckAuthentication_c[] =
-    "$Zephyr: /mit/zephyr/src/lib/RCS/ZCheckAuthentication.c,v 1.14 89/03/24 14:17:38 jtkohl Exp Locker: raeburn $";
-#endif
 
 #if 0
 #include <internal.h>
