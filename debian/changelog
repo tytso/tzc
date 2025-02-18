@@ -1,3 +1,17 @@
+tzc (2.6.16.1) unstable; urgency=medium
+
+  * Integrate changes from 2.6.16 from CMU's cclub.
+  * Add support for zlocate and to specify a hostname.
+  * Fixed a bug with disabling heartbeat.
+  * Since the sources are no longer being maintained upstream start.
+    maintaining this as a Debian native package.
+  * Fix typo in man page (Closes: #484050)
+  * Fix build on gcc 15 (Closes: #1098022)
+  * Update DH_LEVEL to 13 from 9.
+  * Update debian standards compliance to 4.7.0.
+
+ -- Theodore Y. Ts'o <tytso@mit.edu>  Mon, 17 Feb 2025 21:00:30 -0500
+
 tzc (2.6.15-5.4) unstable; urgency=medium
 
   * Non-maintainer upload.
