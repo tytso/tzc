@@ -66,6 +66,6 @@ extern Value *vmake_var(enum Vtag tag, void **value);
 extern Value *assqv(Value *key, Value *assoc);
 extern int vlength(Value *l);
 
-extern int eqv();
-extern int parse();
-extern void free_value();
+extern int eqv(Value *v1, Value *v2);
+extern int parse(int slen, char *s, Value **v);
+extern void free_value(Value *v);

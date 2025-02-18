@@ -249,8 +249,9 @@ read_string(Globals *g)
 	 break;
        case '\\':
 	 NEXT_CHAR(g);
-	 if (read_escape(g, &c))
+	 if (read_escape(g, &c)) {
 	    ADD_CHAR(c);
+         }
 	 break;
        default:
 	 ADD_CHAR(PEEK_CHAR(g));

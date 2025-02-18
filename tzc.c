@@ -134,10 +134,6 @@
 #include <bstring.h>
 #endif
 
-#ifdef INTERREALM
-extern char *ZExpandRealm();
-#endif
-
 #define ZCTL_BINARY "zctl"
 
 #define TZC_HEARTBEAT_MESSAGE  "tzc\000thump thump"
@@ -346,8 +342,7 @@ void unblock_signals()
 }
 
 void
-sign_off(msg)
-char *msg;
+sign_off(char *msg)
 {
         debug_log("sign_off()");
 
@@ -495,7 +490,6 @@ void subscribe_with_zctl() {
   char st[1024];
   char setwgfile[1200];
   char *portfile;
-  extern char *getenv();
 
   portfile = getenv("WGFILE");
 
@@ -671,7 +665,7 @@ emacs_error(char *err)
 static void tzc_com_err_hook(const char *whoami, long errcode,
 			     const char *fmt, va_list ap)
 {
-    char buf1[4096], errmsg[4096];
+    char buf1[4096], errmsg[5120];
 
     vsnprintf(buf1, sizeof(buf1), fmt, ap);
     snprintf(errmsg, sizeof(errmsg), "%s: %s %s", 
@@ -712,7 +706,7 @@ char *kind_string(int n) {
 int
 send_zgram_to_one(char *class, char *opcode, char *sender,
 		  char *instance, char *recipient, 
-		  char *message, int message_len, int (*auth)())
+		  char *message, int message_len, Z_AuthProc auth)
 {
    ZNotice_t notice;
    int retval;
@@ -756,7 +750,7 @@ send_zgram_to_one(char *class, char *opcode, char *sender,
 void
 send_zgram(Value *spec)
 {
-    int (*auth)();
+    Z_AuthProc auth;
     Value *v;
     Value *recip_list;
     Value *message_list;
