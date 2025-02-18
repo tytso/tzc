@@ -3,7 +3,7 @@ Section: net
 Priority: optional
 Maintainer: Theodore Y. Ts'o <tytso@mit.edu>
 Build-Depends: debhelper-compat (= 13), libzephyr-dev (>= 3.0~beta), comerr-dev
-Standards-Version: 3.6.2.1
+Standards-Version: 4.7.0
 
 Package: tzc
 Architecture: any
